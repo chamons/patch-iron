@@ -4,6 +4,20 @@ using System.Linq;
 
 namespace patchiron
 {
+	public class Range
+	{
+		public int Low { get; }
+		public int High { get; }
+
+		public Range (int low, int high)
+		{
+			Low = low;
+			High = high;
+		}
+
+		public override string ToString () => $"{Low}, {High}";
+	}
+	
 	public class PatchChunk
 	{
 		public List<string> Lines { get; } = new List<string> ();
@@ -18,10 +32,38 @@ namespace patchiron
 			Lines [Lines.IndexOf (oldLine)] = newLine;
 		}
 
+		public void InsertAt (int index, string newLine) => Lines.Insert (index, newLine);
+		public void InsertAfter (string previousLine, string newLine) => Lines.Insert (Lines.IndexOf (previousLine) + 1, newLine);
+		public void RemoveAt (int index) => Lines.RemoveAt (index);
+
 		public void Print ()
 		{
 			foreach (string line in Lines)
 				Console.WriteLine (line);
+		}
+
+		public List<Range> CalculateDiffs ()
+		{
+			List<Range> ranges = new List<Range> ();
+
+			int startDiff = -1;
+
+			for (int i = 0; i < Lines.Count; ++i)
+			{
+				bool startsWithMinus = Lines [i].StartsWith ("-", StringComparison.InvariantCulture);
+				bool startsWithPlus = Lines [i].StartsWith ("+", StringComparison.InvariantCulture);
+				bool inDiff = startDiff != -1;
+				if (!inDiff && startsWithMinus)
+				{
+					startDiff = i;
+				}
+				else if (inDiff && !(startsWithPlus || startsWithMinus))
+				{
+					ranges.Add (new Range (startDiff, i));
+					startDiff = -1;
+				}
+			}
+			return ranges;
 		}
 	}
 

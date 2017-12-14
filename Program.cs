@@ -2,7 +2,7 @@
 using System.Linq;
 using System.IO;
 using Mono.Options;
-
+using System.Collections.Generic;
 
 namespace patchiron
 {
@@ -53,14 +53,81 @@ namespace patchiron
 		{
 			string [] removedLines = chunk.Lines.Where (x => x.StartsWith ("-", StringComparison.Ordinal)).ToArray ();
 			string [] addedLines = chunk.Lines.Where (x => x.StartsWith ("-", StringComparison.Ordinal)).ToArray ();
+			List<Range> diffs = chunk.CalculateDiffs ();
 
-			foreach (var removedLine in removedLines)
+			int rangeOffSet = 0;
+
+			foreach (var range in diffs)
 			{
-				if (removedLine.Contains ("[Availability"))
+				List<int> removeLines = new List<int> ();
+				int lastRemovalIndex = -1;
+				List<string> linesToAdd = new List<string> ();
+
+				for (int i = range.Low; i < range.High; ++i)
 				{
-					chunk.Replace (removedLine, removedLine.Replace ("[Availability", "[Moo"));
+					int index = i + rangeOffSet;
+
+					string line = chunk.Lines [index];
+					if (line.StartsWith ("-", StringComparison.InvariantCulture))
+					{
+						lastRemovalIndex = index;
+						linesToAdd.Add ("+" + ProcessLine (line.Substring (1)));
+					}
+					else if (line.StartsWith ("+", StringComparison.InvariantCulture))
+					{
+						removeLines.Add (index);
+					}
+					else
+					{
+						throw new NotImplementedException ();
+					}
+				}
+
+				foreach (int index in removeLines.Reverse<int> ())
+				{
+					chunk.RemoveAt (index);
+					rangeOffSet -= 1;
+				}
+
+				foreach (string lineToAdd in linesToAdd.Reverse<string> ())
+				{
+					chunk.InsertAt (lastRemovalIndex + 1, lineToAdd);
+					rangeOffSet += 1;
+				}
+
+				// We have to fix up the chunk header
+				for (int i = range.Low; i >= 0; --i)
+				{
+					string line = chunk.Lines [i];
+					if (line.StartsWith ("@@ -", StringComparison.Ordinal))
+					{
+						var bits = line.Split (new char [] { ',' }, 3);
+
+						var correctPart = bits [1].Substring (0, bits [1].IndexOf (' '));
+						var fixedLine = correctPart + bits [2].Substring (bits [2].IndexOf (' '));
+						chunk.Replace (line, bits[0] + "," + bits[1] + "," + fixedLine);
+						break;
+					}
 				}
 			}
+		}
+
+		static string ProcessLine (string line)
+		{
+			if (line.Contains ("[Availability (Deprecated = "))
+			{
+				return line.Replace ("[Availability (Deprecated = ", "[Deprecated (");
+			}
+			else if (line.Contains ("[Availability (Introduced = "))
+			{
+				return line.Replace ("[Availability (Introduced = ", "[Introduced (");
+			}
+			else if (line.Contains ("[Availability (Unavailable = "))
+			{
+				return line.Replace ("[Availability (Unavailable = ", "[Unavailable (");
+			}
+
+			return line;
 		}
 
 		static void ShowHelp (OptionSet os)
