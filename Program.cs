@@ -31,20 +31,36 @@ namespace patchiron
 				Die ($"Unable to find file {bits[0]}");
 
 			var lines = File.ReadAllLines (bits [0]);
-			int current = 0;
-			while (true)
-			{
-				Console.WriteLine (lines[current]);
-				current++;
+			PatchParser parser = new PatchParser (lines);
 
-				if (current >= lines.Count ())
-					break;
+			Patch patch = parser.Parse ();
+			Process (patch);
+			patch.Print ();
+		}
+
+		static void Process (Patch patch)
+		{
+			foreach (var part in patch.Parts)
+			{
+				foreach (var chunk in part.Chunks.ToList ())
+				{
+					ProcessChunk (chunk, part.FileName);
+				}
 			}
 		}
 
-		static bool ProcessDiff ()
+		static void ProcessChunk (PatchChunk chunk, string fileName)
 		{
-			return false;
+			string [] removedLines = chunk.Lines.Where (x => x.StartsWith ("-", StringComparison.Ordinal)).ToArray ();
+			string [] addedLines = chunk.Lines.Where (x => x.StartsWith ("-", StringComparison.Ordinal)).ToArray ();
+
+			foreach (var removedLine in removedLines)
+			{
+				if (removedLine.Contains ("[Availability"))
+				{
+					chunk.Replace (removedLine, removedLine.Replace ("[Availability", "[Moo"));
+				}
+			}
 		}
 
 		static void ShowHelp (OptionSet os)
@@ -55,12 +71,11 @@ namespace patchiron
 			Die (); 
 		}
 
-		static void Die (string message = null)
+		public static void Die (string message = null)
 		{
 			if (message != null)
 				Console.Error.WriteLine (message);
 			System.Environment.Exit (1);
 		}
-
 	}
 }

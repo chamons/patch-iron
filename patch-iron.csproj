@@ -34,6 +34,7 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="Options.cs" />
+    <Compile Include="PatchParser.cs" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Properties\" />
