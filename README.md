@@ -8,6 +8,6 @@ It is useful when a task is more difficult that can be easily solved with grepdi
 
 ### Usage
 
-- Open patch-iron.sln and bend Program.cs ProcessChunk () to your bidding.
+- Open patch-iron.sln and bend Conversion.cs ProcessChunk () to your bidding.
 - Build
 - Run mono patch-iron.exe foo.patch > bar.patch
