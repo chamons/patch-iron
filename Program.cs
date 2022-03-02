@@ -44,7 +44,7 @@ namespace patchiron
 			{
 				foreach (var chunk in part.Chunks.ToList ())
 				{
-					ProcessChunk (chunk, part.FileName);
+					ProcessChunk (chunk, part.FileName!);
 				}
 			}
 		}
@@ -62,7 +62,7 @@ namespace patchiron
 			Die (); 
 		}
 
-		public static void Die (string message = null)
+		public static void Die (string? message = null)
 		{
 			if (message != null)
 				Console.Error.WriteLine (message);

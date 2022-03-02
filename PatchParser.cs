@@ -71,7 +71,7 @@ namespace patchiron
 	{
 		public List<string> Header { get; } = new List<string> ();
 		public List<PatchChunk> Chunks { get; } = new List<PatchChunk> ();
-		public string FileName { get; set; }
+		public string? FileName { get; set; }
 
 		public PatchPart (IEnumerable<string> header)
 		{
@@ -196,6 +196,6 @@ namespace patchiron
 				Die ($"Expected {prefix} on line ({Index}) {Current}");
 		}
 
-		static void Die (string message = null) => MainClass.Die (message);
+		static void Die (string message) => MainClass.Die (message);
 	}
 }

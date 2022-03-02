@@ -33,7 +33,7 @@ namespace patchiron
 	
 	public static class Conversion
 	{
-		static string ProcessLine (string line)
+		static string? ProcessLine (string line)
 		{
 			if (line.Contains ("enum"))
 				return line;
