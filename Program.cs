@@ -56,7 +56,7 @@ namespace patchiron
 
 		static void ShowHelp (OptionSet os)
 		{
-			Console.WriteLine ("Usage: patch-iron [options] start-pach end-patch");
+			Console.WriteLine ("Usage: patch-iron [options] start-patch");
 			Console.WriteLine ("ProcessDiff will need to be modified to do something useful");
 			os.WriteOptionDescriptions (Console.Out);
 			Die (); 
