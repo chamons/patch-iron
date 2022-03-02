@@ -32,9 +32,19 @@ namespace patchiron
 			Lines [Lines.IndexOf (oldLine)] = newLine;
 		}
 
+		public void ReplaceAt (int index, string newLine)
+		{
+			Lines [index] = newLine;
+		}
+
 		public void InsertAt (int index, string newLine) => Lines.Insert (index, newLine);
 		public void InsertAfter (string previousLine, string newLine) => Lines.Insert (Lines.IndexOf (previousLine) + 1, newLine);
 		public void RemoveAt (int index) => Lines.RemoveAt (index);
+
+		public void FlipFirstCharacter (int index, char c)
+		{
+			ReplaceAt (index, c + Lines[index].Substring (1));
+		}
 
 		public void Print ()
 		{

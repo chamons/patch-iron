@@ -40,6 +40,7 @@ namespace patchiron
 
 		static void Process (Patch patch)
 		{
+			var toRemove = new List<PatchPart>();
 			foreach (var part in patch.Parts)
 			{
 				var conversion = new Conversion();
@@ -48,7 +49,11 @@ namespace patchiron
 					conversion.ProcessChunk (chunk, part.FileName!);
 				}
 				conversion.ProcessPart (part);
+				if (conversion.ShouldDrop) { 
+					toRemove.Add (part);
+				}
 			}
+			toRemove.ForEach(p => patch.Parts.Remove(p));
 		}
 
 		static void ShowHelp (OptionSet os)

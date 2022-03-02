@@ -13,10 +13,6 @@ namespace patchiron
 		// Add patching logic here. 
 		public void ProcessChunk (PatchChunk chunk, string fileName)
 		{
-			//string [] removedLines = chunk.Lines.Where (x => x.StartsWith ("-", StringComparison.Ordinal)).ToArray ();
-			//string [] addedLines = chunk.Lines.Where (x => x.StartsWith ("-", StringComparison.Ordinal)).ToArray ();
-			Dictionary<int, Delta> deltaList = new Dictionary<int, Delta> ();
-
 			List<Range> diffs = chunk.CalculateDiffs ();
 
 			// For each range in diff
@@ -27,7 +23,7 @@ namespace patchiron
 			DiffsRemaining += diffs.Count;
 			foreach (var range in diffs)
 			{
-				// Find using System.Runtime.Versioning;
+				bool processed = false;
 				if (range.High - range.Low == 1) {
 					switch (chunk.Lines[range.Low].Trim ()) {
 						case "-using System.Runtime.Versioning;":
@@ -36,13 +32,13 @@ namespace patchiron
 							}
 							UsingLine = range.Low;
 							ChunkWithUsing = chunk;
+							// Flip it now, we'll flip back later if needed
+							// processed = true;
 							break;
 						case "-":
 							// Remove whitespace diff while we're here
 							DiffsRemaining -= 1;
-							deltaList.Add (range.Low, Delta.Removal);
-							break;
-						default:
+							processed = true;
 							break;
 					}
 				}
@@ -52,23 +48,26 @@ namespace patchiron
 					string lineAfterChunk = chunk.Lines [range.High];
 					if (lineAfterChunk.Contains ("partial") && lineAfterChunk.Contains ("class")) {
 						DiffsRemaining -= 1;
-						for (int i = range.Low; i < range.High; ++i) {
-							deltaList.Add (i, Delta.Removal);
-						}
+						processed = true;
+					}
+				}
+
+				if (!processed) {
+					for (int i = range.Low; i < range.High; ++i) {
+						chunk.FlipFirstCharacter (i, ' ');
 					}
 				}
 			}
-
-			Delta.ApplyListToChunk (chunk, deltaList);
 		}
 
 		public void ProcessPart (PatchPart part)
 		{
 			if (DiffsRemaining == 1 && UsingLine != null) {
-				Dictionary<int, Delta> deltaList = new Dictionary<int, Delta> ();
-				deltaList.Add (UsingLine.Value, Delta.Removal);
-				Delta.ApplyListToChunk (ChunkWithUsing!, deltaList);
+				ChunkWithUsing!.FlipFirstCharacter (UsingLine.Value, '-');
+				DiffsRemaining -= 1;
 			}
 		}
+
+		public bool ShouldDrop => DiffsRemaining != 0;
 	}
 }
