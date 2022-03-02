@@ -42,16 +42,13 @@ namespace patchiron
 		{
 			foreach (var part in patch.Parts)
 			{
+				var conversion = new Conversion();
 				foreach (var chunk in part.Chunks.ToList ())
 				{
-					ProcessChunk (chunk, part.FileName!);
+					conversion.ProcessChunk (chunk, part.FileName!);
 				}
+				conversion.ProcessPart (part);
 			}
-		}
-
-		static void ProcessChunk (PatchChunk chunk, string fileName)
-		{
-			Conversion.ProcessChunk (chunk, fileName);
 		}
 
 		static void ShowHelp (OptionSet os)

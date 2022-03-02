@@ -3,45 +3,15 @@ using System.Linq;
 using System.Collections.Generic;
 
 namespace patchiron
-{
-	enum DeltaType { Addition, AddAfter, Removal };
-	struct Delta
+{	
+	public class Conversion
 	{
-		public DeltaType Type { get; private set; }
-		public string Data { get; private set; }
-
-		public static Delta CreateAddition (string data)
-		{
-			return new Delta () {
-				Type = DeltaType.Addition,
-				Data = data
-			};
-		}
-
-		public static Delta CreateAddAfter (string data)
-		{
-			return new Delta ()
-			{
-				Type = DeltaType.AddAfter,
-				Data = data
-			};
-		}
-
-		public static Delta Removal = new Delta () { Type = DeltaType.Removal };
-	}
-
-	
-	public static class Conversion
-	{
-		static string? ProcessLine (string line)
-		{
-			if (line.Contains ("enum"))
-				return line;
-			return null;
-		}
+		PatchChunk? ChunkWithUsing = null;
+		int? UsingLine = null;
+		int DiffsRemaining = 0;
 
 		// Add patching logic here. 
-		public static void ProcessChunk (PatchChunk chunk, string fileName)
+		public void ProcessChunk (PatchChunk chunk, string fileName)
 		{
 			//string [] removedLines = chunk.Lines.Where (x => x.StartsWith ("-", StringComparison.Ordinal)).ToArray ();
 			//string [] addedLines = chunk.Lines.Where (x => x.StartsWith ("-", StringComparison.Ordinal)).ToArray ();
@@ -49,109 +19,56 @@ namespace patchiron
 
 			List<Range> diffs = chunk.CalculateDiffs ();
 
+			// For each range in diff
+				// If one line, and text is "using System.Runtime.Versioning;" then note
+				// Else if multiple lines, and the line after it is "partial class" then remove it
+				// Else keep
+				// If we removed all bits in diff but the using is gone, also remove it
+			DiffsRemaining += diffs.Count;
 			foreach (var range in diffs)
 			{
-				for (int i = range.Low; i < range.High; ++i)
-				{
-					int index = i;// + rangeOffSet;
-
-					string line = chunk.Lines [index];
-					if (ProcessLine (line) == null)
-					{
-						if (line.StartsWith ("-", StringComparison.InvariantCulture))
-							deltaList.Add (index, Delta.CreateAddAfter ("+" + line.Substring (1)));
-						else
-							deltaList.Add (index, Delta.Removal);
+				// Find using System.Runtime.Versioning;
+				if (range.High - range.Low == 1) {
+					switch (chunk.Lines[range.Low].Trim ()) {
+						case "-using System.Runtime.Versioning;":
+							if (UsingLine != null) {
+								throw new InvalidOperationException ("More than one using?");
+							}
+							UsingLine = range.Low;
+							ChunkWithUsing = chunk;
+							break;
+						case "-":
+							// Remove whitespace diff while we're here
+							DiffsRemaining -= 1;
+							deltaList.Add (range.Low, Delta.Removal);
+							break;
+						default:
+							break;
+					}
+				}
+				else {
+					// if multiple lines, and the line after it is "partial class" then remove it
+					// Else keep
+					string lineAfterChunk = chunk.Lines [range.High];
+					if (lineAfterChunk.Contains ("partial") && lineAfterChunk.Contains ("class")) {
+						DiffsRemaining -= 1;
+						for (int i = range.Low; i < range.High; ++i) {
+							deltaList.Add (i, Delta.Removal);
+						}
 					}
 				}
 			}
 
-			foreach (var kv in deltaList.OrderBy (x => x.Key).Reverse ())
-			{
-				var action = kv.Value.Type;
-				switch (action)
-				{
-					case DeltaType.Addition:
-						chunk.InsertAt (kv.Key, kv.Value.Data);
-						break;
-					case DeltaType.AddAfter:
-						chunk.InsertAt (kv.Key + 1, kv.Value.Data);
-						break;
-					case DeltaType.Removal:
-						chunk.RemoveAt (kv.Key);
-						break;
-					default:
-						throw new NotImplementedException ();
-				}
-			}
-
-			// If you have unbound add/removals you might have to tweak the chunk header
-			//for (int i = range.Low; i >= 0; --i)
-			//{
-			//	string line = chunk.Lines [i];
-			//	if (line.StartsWith ("@@ -", StringComparison.Ordinal))
-			//	{
-			//		var bits = line.Split (new char [] { ',' }, 3);
-
-			//		var correctPart = bits [1].Substring (0, bits [1].IndexOf (' '));
-			//		var fixedLine = correctPart + bits [2].Substring (bits [2].IndexOf (' '));
-			//		chunk.Replace (line, bits [0] + "," + bits [1] + "," + fixedLine);
-			//		break;
-			//	}
-			//}
+			Delta.ApplyListToChunk (chunk, deltaList);
 		}
 
-		public static string ReplaceFirst (string text, string search, string replace)
+		public void ProcessPart (PatchPart part)
 		{
-			int pos = text.IndexOf (search);
-			if (pos < 0)
-			{
-				return text;
+			if (DiffsRemaining == 1 && UsingLine != null) {
+				Dictionary<int, Delta> deltaList = new Dictionary<int, Delta> ();
+				deltaList.Add (UsingLine.Value, Delta.Removal);
+				Delta.ApplyListToChunk (ChunkWithUsing!, deltaList);
 			}
-			return text.Substring (0, pos) + replace + text.Substring (pos + search.Length);
 		}
-
-		// Doesn't have to be perfect
-		//static string ProcessAvailabilityToSpecifc (string line)
-		//{
-		//	string name = null;
-		//	if (line.Contains ("[Introduced (PlatformName.iOS"))
-		//		name = "iOS";
-		//	else if (line.Contains ("[Availability (Introduced = "))
-		//		name = "Introduced";
-		//	else if (line.Contains ("[Availability (Unavailable = "))
-		//		name = "Unavailable";
-
-		//	if (name != null)
-		//	{
-		//		foreach (var replacement in FindPlatformBits (line))
-		//			line = line.Replace (replacement.Key, replacement.Value);
-
-		//		return line.Replace ($"[Availability ({name} = ", $"[{name} (").Replace ("Message =", "message :");
-		//	}
-
-		//	return line;
-		//}
-
-		//static IEnumerable<KeyValuePair<string, string>> FindPlatformBits (string line)
-		//{
-		//	int offset = 0;
-		//	while (true)
-		//	{
-		//		int start = line.IndexOf ("Platform.", offset, StringComparison.Ordinal);
-		//		if (start == -1)
-		//			yield break;
-
-		//		int end = start + 9 /* Platform. */;
-		//		while (char.IsLetterOrDigit (line [end]) || line [end] == '_')
-		//			end++;
-
-		//		string token = line.Substring (start, end - start);
-		//		string convertedToken = token.Replace ("Platform", "PlatformName").Replace ("_", ", ").Replace ("Mac", "MacOSX").Replace ("Watch", "WatchOS").Replace ("TV", "TvOS");
-
-		//		yield return new KeyValuePair<string, string> (token, convertedToken);
-		//		offset = end + 1;
-		//	}
-		//}
 	}
 }
